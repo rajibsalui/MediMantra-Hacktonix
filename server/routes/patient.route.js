@@ -15,6 +15,7 @@ import {
   uploadMedicalDocument,
   searchDoctors
 } from '../controllers/patient.controller.js';
+import { processPrescription } from '../controllers/ocr.controller.js';
 
 const router = express.Router();
 
@@ -80,6 +81,13 @@ router.get('/medical-records', authMiddleware, getPatientMedicalRecords);
  * @access  Private (Patient only)
  */
 router.post('/medical-records/upload', authMiddleware, upload.single('document'), uploadMedicalDocument);
+
+/**
+ * @route   POST /api/patients/medical-records/process-prescription
+ * @desc    Process prescription using OCR
+ * @access  Private (Patient only)
+ */
+router.post('/medical-records/process-prescription', authMiddleware, upload.single('document'), processPrescription);
 
 /**
  * @route   GET /api/patients/prescriptions/:id/download

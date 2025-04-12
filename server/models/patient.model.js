@@ -66,12 +66,12 @@ const patientSchema = new mongoose.Schema(
       name: {
         type: String,
         trim: true,
-        required: [true, 'Emergency contact name is required']
+        default: ''
       },
       phone: {
         type: String,
         trim: true,
-        required: [true, 'Emergency contact phone is required'],
+        default: '',
         validate: {
           validator: function(v) {
             // Validate phone number format (10 digits)
@@ -83,7 +83,7 @@ const patientSchema = new mongoose.Schema(
       relationship: {
         type: String,
         trim: true,
-        required: [true, 'Relationship to emergency contact is required']
+        default: 'Other'
       },
     },
     preferredPharmacy: {

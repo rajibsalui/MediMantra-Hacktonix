@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import fs from 'fs';
 import Patient from '../models/patient.model.js';
 import User from '../models/user.model.js';
 import Doctor from '../models/doctor.model.js';
@@ -87,7 +88,25 @@ export const updatePatientProfile = async (req, res) => {
     if (height) patient.height = height;
     if (weight) patient.weight = weight;
     if (address) patient.address = address;
-    if (emergencyContact) patient.emergencyContact = emergencyContact;
+    
+    // Proper handling of emergencyContact
+    if (emergencyContact) {
+      // If emergencyContact doesn't exist yet, create an empty object
+      if (!patient.emergencyContact) {
+        patient.emergencyContact = {};
+      }
+      
+      // Update individual fields if provided
+      if (emergencyContact.name) patient.emergencyContact.name = emergencyContact.name;
+      if (emergencyContact.phone) patient.emergencyContact.phone = emergencyContact.phone;
+      if (emergencyContact.relationship) patient.emergencyContact.relationship = emergencyContact.relationship;
+      
+      // Set a default relationship if it's required but not provided
+      if (!patient.emergencyContact.relationship) {
+        patient.emergencyContact.relationship = 'Other';
+      }
+    }
+    
     if (allergies) patient.allergies = allergies;
     if (chronicConditions) patient.chronicConditions = chronicConditions;
     if (currentMedications) patient.currentMedications = currentMedications;
@@ -621,7 +640,7 @@ export const uploadMedicalDocument = async (req, res) => {
     const MedicalRecord = mongoose.model('MedicalRecord');
     const medicalRecord = new MedicalRecord({
       patient: patient._id,
-      documentType,
+      documentType: documentType || 'other',
       documentDate: new Date(documentDate) || new Date(),
       description,
       fileUrl: uploadedFile.url,

@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePatient } from "@/contexts/PatientContext";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardFooter, 
-  CardHeader, 
-  CardTitle 
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,21 +19,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "react-hot-toast";
-import { 
-  FileText, 
-  Upload, 
-  Download, 
-  Trash2, 
-  AlertCircle, 
-  RefreshCw, 
+import {
+  FileText,
+  Upload,
+  Download,
+  Trash2,
+  AlertCircle,
+  RefreshCw,
   Search,
-  Calendar,
-  Clock,
-  Tag,
-  User,
   ExternalLink,
   Filter,
-  Plus
+  Scan,
+  Pill
 } from "lucide-react";
 import {
   Dialog,
@@ -42,7 +39,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -51,7 +47,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { API_URL, SOCKET_URL } from '@/config/environment';
+// No need to import API_URL as we're using context functions
 
 // This ensures the page is only rendered on the client side
 export const dynamic = 'force-dynamic';
@@ -61,9 +57,9 @@ export const runtime = 'edge';
 export default function PatientMedicalRecords() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
-  const { fetchMedicalRecords, loading } = usePatient();
+  const { fetchMedicalRecords, loading, uploadMedicalDocument, processPrescriptionOCR } = usePatient();
   const fileInputRef = useRef(null);
-  
+
   const [medicalRecords, setMedicalRecords] = useState(null);
   const [activeTab, setActiveTab] = useState("documents");
   const [searchTerm, setSearchTerm] = useState("");
@@ -77,7 +73,9 @@ export default function PatientMedicalRecords() {
   });
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
-  
+  const [isOcrProcessing, setIsOcrProcessing] = useState(false);
+  const [ocrResults, setOcrResults] = useState(null);
+
   useEffect(() => {
     if (isAuthenticated && user?.id) {
       loadMedicalRecords();
@@ -85,12 +83,12 @@ export default function PatientMedicalRecords() {
       router.push("/login");
     }
   }, [isAuthenticated, user?.id]);
-  
+
   const loadMedicalRecords = async () => {
     try {
       setError(null);
       const records = await fetchMedicalRecords(user?.id);
-      
+
       if (records) {
         setMedicalRecords(records);
       } else {
@@ -102,12 +100,12 @@ export default function PatientMedicalRecords() {
       toast.error("Failed to load medical records");
     }
   };
-  
+
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setUploadFile(file);
-      
+
       // Auto-fill title with filename (without extension)
       const fileName = file.name.split('.').slice(0, -1).join('.');
       setUploadDetails(prev => ({
@@ -116,66 +114,127 @@ export default function PatientMedicalRecords() {
       }));
     }
   };
-  
+
   const handleUpload = async (e) => {
     e.preventDefault();
-    
+
     if (!uploadFile) {
       toast.error("Please select a file to upload");
       return;
     }
-    
+
     if (!uploadDetails.title) {
       toast.error("Please provide a title for the document");
       return;
     }
-    
+
     try {
       setUploading(true);
-      
+
       // Create form data
       const formData = new FormData();
-      formData.append("file", uploadFile);
-      formData.append("title", uploadDetails.title);
-      formData.append("category", uploadDetails.category);
+      formData.append("document", uploadFile);  // Changed from "file" to "document" to match server expectation
+      formData.append("documentType", uploadDetails.category);
+      formData.append("documentDate", new Date().toISOString());
       formData.append("description", uploadDetails.description);
-      
-      // TODO: Implement actual upload API call
-      // await uploadMedicalDocument(formData);
-      
-      // Simulate upload delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
+
+      // Debug log
+      console.log('Upload file:', uploadFile.name, 'Size:', uploadFile.size, 'Type:', uploadFile.type);
+
+      let result;
+
+      // Use the appropriate function based on document type and OCR setting
+      if (uploadDetails.category === "prescription" && uploadDetails.useOcr) {
+        console.log('Using OCR processing for prescription');
+        result = await processPrescriptionOCR(formData);
+
+        // Store OCR results if available
+        if (result && result.extractedData) {
+          setOcrResults(result.extractedData);
+        }
+      } else {
+        console.log('Using regular document upload');
+        result = await uploadMedicalDocument(formData);
+      }
+
+      console.log('Upload successful:', result);
+
       toast.success("Medical record uploaded successfully");
       setUploadDialogOpen(false);
       resetUploadForm();
       loadMedicalRecords();
     } catch (err) {
       console.error("Error uploading medical record:", err);
-      toast.error("Failed to upload medical record");
+      toast.error(err.message || "Failed to upload medical record");
     } finally {
       setUploading(false);
     }
   };
-  
+
+  const processPrescriptionWithOcr = async () => {
+    if (!uploadFile) {
+      toast.error("Please select a file to upload");
+      return;
+    }
+
+    try {
+      setIsOcrProcessing(true);
+
+      // Create form data
+      const formData = new FormData();
+      formData.append("document", uploadFile);  // Changed from "file" to "document" to match server expectation
+      console.log('Form data created with file:', uploadFile.name);
+
+      // Use the context function to process the prescription
+      const result = await processPrescriptionOCR(formData);
+      console.log('OCR result:', result);
+
+      if (result && result.extractedData) {
+        setOcrResults(result.extractedData);
+
+        // Auto-fill form fields with OCR results
+        setUploadDetails(prev => ({
+          ...prev,
+          title: result.extractedData.doctorName
+            ? `Prescription from Dr. ${result.extractedData.doctorName}`
+            : prev.title || "Prescription",
+          description: result.extractedData.diagnosis
+            ? `Diagnosis: ${result.extractedData.diagnosis}`
+            : prev.description
+        }));
+
+        toast.success("Prescription processed successfully");
+      } else {
+        toast.warning("Prescription processed, but no data could be extracted");
+      }
+    } catch (err) {
+      console.error("Error processing prescription:", err);
+      toast.error(err.message || "Failed to process prescription");
+    } finally {
+      setIsOcrProcessing(false);
+    }
+  };
+
   const resetUploadForm = () => {
     setUploadFile(null);
     setUploadDetails({
       title: "",
       category: "lab_report",
-      description: ""
+      description: "",
+      useOcr: false
     });
+    setOcrResults(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
-  
+
   // Filter and search records
   const getFilteredRecords = () => {
     if (!medicalRecords) return [];
-    
+
     let records = [];
-    
+
     // Get records based on active tab
     switch (activeTab) {
       case "documents":
@@ -196,12 +255,12 @@ export default function PatientMedicalRecords() {
       default:
         records = [];
     }
-    
+
     // Apply category filter if not "all"
     if (filterCategory !== "all" && activeTab === "documents") {
       records = records.filter(record => record.category === filterCategory);
     }
-    
+
     // Apply search term
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
@@ -220,7 +279,7 @@ export default function PatientMedicalRecords() {
           );
         } else if (activeTab === "visits") {
           return (
-            (record.doctor && record.doctor.user && 
+            (record.doctor && record.doctor.user &&
               `${record.doctor.user.firstName} ${record.doctor.user.lastName}`.toLowerCase().includes(term)) ||
             (record.reason && record.reason.toLowerCase().includes(term)) ||
             (record.notes && record.notes.toLowerCase().includes(term))
@@ -231,12 +290,12 @@ export default function PatientMedicalRecords() {
         return false;
       });
     }
-    
+
     return records;
   };
-  
+
   const filteredRecords = getFilteredRecords();
-  
+
   // Render document records
   const renderDocuments = () => {
     if (loading) {
@@ -256,7 +315,7 @@ export default function PatientMedicalRecords() {
         </Card>
       ));
     }
-    
+
     if (error) {
       return (
         <div className="text-center py-8">
@@ -269,15 +328,15 @@ export default function PatientMedicalRecords() {
         </div>
       );
     }
-    
+
     if (!filteredRecords || filteredRecords.length === 0) {
       return (
         <div className="text-center py-8">
           <FileText className="h-12 w-12 text-slate-400 mx-auto mb-4" />
           <h3 className="text-xl font-semibold mb-2">No medical records found</h3>
           <p className="text-slate-500 dark:text-slate-400 mb-4">
-            {searchTerm 
-              ? "No records match your search criteria. Try a different search term." 
+            {searchTerm
+              ? "No records match your search criteria. Try a different search term."
               : "You don't have any medical records uploaded yet."}
           </p>
           {!searchTerm && (
@@ -289,10 +348,10 @@ export default function PatientMedicalRecords() {
         </div>
       );
     }
-    
+
     return filteredRecords.map((document) => (
-      <Card 
-        key={document._id} 
+      <Card
+        key={document._id}
         className="mb-4 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-all"
       >
         <CardHeader className="pb-2">
@@ -340,7 +399,7 @@ export default function PatientMedicalRecords() {
       </Card>
     ));
   };
-  
+
   // Render lab results
   const renderLabResults = () => {
     if (!filteredRecords || filteredRecords.length === 0) {
@@ -349,17 +408,17 @@ export default function PatientMedicalRecords() {
           <FileText className="h-12 w-12 text-slate-400 mx-auto mb-4" />
           <h3 className="text-xl font-semibold mb-2">No lab results found</h3>
           <p className="text-slate-500 dark:text-slate-400 mb-4">
-            {searchTerm 
-              ? "No lab results match your search criteria." 
+            {searchTerm
+              ? "No lab results match your search criteria."
               : "You don't have any lab test results in your records."}
           </p>
         </div>
       );
     }
-    
+
     return filteredRecords.map((test, index) => (
-      <Card 
-        key={test._id || index} 
+      <Card
+        key={test._id || index}
         className="mb-4 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-all"
       >
         <CardHeader className="pb-2">
@@ -378,8 +437,8 @@ export default function PatientMedicalRecords() {
             </div>
             {test.status && (
               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                test.status === 'normal' 
-                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' 
+                test.status === 'normal'
+                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
                   : test.status === 'abnormal'
                   ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
                   : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
@@ -401,7 +460,7 @@ export default function PatientMedicalRecords() {
                 <p className="text-sm">{test.referenceRange || 'N/A'}</p>
               </div>
             </div>
-            
+
             {test.notes && (
               <div>
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Notes</p>
@@ -427,7 +486,7 @@ export default function PatientMedicalRecords() {
       </Card>
     ));
   };
-  
+
   // Render medical visits
   const renderVisits = () => {
     if (!filteredRecords || filteredRecords.length === 0) {
@@ -436,17 +495,17 @@ export default function PatientMedicalRecords() {
           <FileText className="h-12 w-12 text-slate-400 mx-auto mb-4" />
           <h3 className="text-xl font-semibold mb-2">No medical visits found</h3>
           <p className="text-slate-500 dark:text-slate-400 mb-4">
-            {searchTerm 
-              ? "No visits match your search criteria." 
+            {searchTerm
+              ? "No visits match your search criteria."
               : "You don't have any recorded medical visits."}
           </p>
         </div>
       );
     }
-    
+
     return filteredRecords.map((visit) => (
-      <Card 
-        key={visit._id} 
+      <Card
+        key={visit._id}
         className="mb-4 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-all"
       >
         <CardHeader className="pb-2">
@@ -476,14 +535,14 @@ export default function PatientMedicalRecords() {
                 <p className="text-sm">{visit.reason}</p>
               </div>
             )}
-            
+
             {visit.diagnosis && (
               <div>
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Diagnosis</p>
                 <p className="text-sm">{visit.diagnosis}</p>
               </div>
             )}
-            
+
             {visit.notes && (
               <div>
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Doctor's Notes</p>
@@ -501,7 +560,7 @@ export default function PatientMedicalRecords() {
       </Card>
     ));
   };
-  
+
   // Render medical conditions
   const renderConditions = () => {
     if (!filteredRecords || filteredRecords.length === 0) {
@@ -510,26 +569,26 @@ export default function PatientMedicalRecords() {
           <FileText className="h-12 w-12 text-slate-400 mx-auto mb-4" />
           <h3 className="text-xl font-semibold mb-2">No conditions found</h3>
           <p className="text-slate-500 dark:text-slate-400 mb-4">
-            {searchTerm 
-              ? "No conditions match your search criteria." 
+            {searchTerm
+              ? "No conditions match your search criteria."
               : "You don't have any recorded medical conditions or allergies."}
           </p>
         </div>
       );
     }
-    
+
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {filteredRecords.map((condition, index) => (
-          <Card 
-            key={index} 
+          <Card
+            key={index}
             className="border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-all"
           >
             <CardContent className="p-4">
               <div className="flex items-start">
                 <div className={`p-2 rounded-full mr-3 ${
-                  condition.type === 'allergy' 
-                    ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400' 
+                  condition.type === 'allergy'
+                    ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
                     : 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400'
                 }`}>
                   <AlertCircle className="h-5 w-5" />
@@ -547,7 +606,7 @@ export default function PatientMedicalRecords() {
       </div>
     );
   };
-  
+
   return (
     <DashboardLayout>
       <div className="container mx-auto py-6 px-4 md:px-6">
@@ -559,14 +618,28 @@ export default function PatientMedicalRecords() {
             </p>
           </div>
           <div className="flex space-x-2 mt-4 md:mt-0">
-            <Button 
+            <Button
               variant="outline"
               onClick={() => setUploadDialogOpen(true)}
             >
               <Upload className="h-4 w-4 mr-2" />
               Upload
             </Button>
-            <Button 
+            <Button
+              variant="outline"
+              onClick={() => {
+                setUploadDialogOpen(true);
+                setUploadDetails(prev => ({
+                  ...prev,
+                  category: "prescription",
+                  useOcr: true
+                }));
+              }}
+            >
+              <Scan className="h-4 w-4 mr-2" />
+              Scan Prescription
+            </Button>
+            <Button
               onClick={loadMedicalRecords}
               disabled={loading}
             >
@@ -575,7 +648,7 @@ export default function PatientMedicalRecords() {
             </Button>
           </div>
         </div>
-        
+
         {/* Search and filter */}
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="relative flex-1">
@@ -587,7 +660,7 @@ export default function PatientMedicalRecords() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          
+
           {activeTab === "documents" && (
             <Select value={filterCategory} onValueChange={setFilterCategory}>
               <SelectTrigger className="w-full sm:w-[180px]">
@@ -608,7 +681,7 @@ export default function PatientMedicalRecords() {
             </Select>
           )}
         </div>
-        
+
         {/* Tabs */}
         <Tabs defaultValue="documents" value={activeTab} onValueChange={setActiveTab} className="mb-6">
           <TabsList key="tabs-list" className="grid w-full grid-cols-2 md:grid-cols-4 mb-6">
@@ -617,24 +690,24 @@ export default function PatientMedicalRecords() {
             <TabsTrigger value="visits">Medical Visits</TabsTrigger>
             <TabsTrigger value="conditions">Conditions</TabsTrigger>
           </TabsList>
-          
+
           <TabsContent value="documents" className="mt-0">
             {renderDocuments()}
           </TabsContent>
-          
+
           <TabsContent value="lab_results" className="mt-0">
             {renderLabResults()}
           </TabsContent>
-          
+
           <TabsContent value="visits" className="mt-0">
             {renderVisits()}
           </TabsContent>
-          
+
           <TabsContent value="conditions" className="mt-0">
             {renderConditions()}
           </TabsContent>
         </Tabs>
-        
+
         {/* Upload dialog */}
         <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
           <DialogContent className="sm:max-w-[500px]">
@@ -644,14 +717,14 @@ export default function PatientMedicalRecords() {
                 Upload medical documents, reports, or other health records to your profile.
               </DialogDescription>
             </DialogHeader>
-            
+
             <form onSubmit={handleUpload}>
               <div className="space-y-4 py-2">
                 <div className="space-y-2">
                   <Label htmlFor="file">Document File</Label>
                   <div className="flex items-center justify-center w-full">
-                    <label 
-                      htmlFor="file-upload" 
+                    <label
+                      htmlFor="file-upload"
                       className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-slate-50 dark:bg-slate-800 border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
                     >
                       <div className="flex flex-col items-center justify-center pt-5 pb-6">
@@ -663,10 +736,10 @@ export default function PatientMedicalRecords() {
                           PDF, JPG, PNG or DOCX (MAX. 10MB)
                         </p>
                       </div>
-                      <input 
-                        id="file-upload" 
-                        type="file" 
-                        className="hidden" 
+                      <input
+                        id="file-upload"
+                        type="file"
+                        className="hidden"
                         ref={fileInputRef}
                         onChange={handleFileChange}
                         accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
@@ -676,9 +749,9 @@ export default function PatientMedicalRecords() {
                   {uploadFile && (
                     <div className="flex items-center justify-between bg-slate-100 dark:bg-slate-800 p-2 rounded mt-2">
                       <span className="text-sm truncate">{uploadFile.name}</span>
-                      <Button 
-                        type="button" 
-                        variant="ghost" 
+                      <Button
+                        type="button"
+                        variant="ghost"
                         size="sm"
                         onClick={() => {
                           setUploadFile(null);
@@ -690,22 +763,22 @@ export default function PatientMedicalRecords() {
                     </div>
                   )}
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="title">Document Title</Label>
-                  <Input 
-                    id="title" 
+                  <Input
+                    id="title"
                     value={uploadDetails.title}
                     onChange={(e) => setUploadDetails({...uploadDetails, title: e.target.value})}
                     required
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="category">Category</Label>
-                  <Select 
-                    value={uploadDetails.category} 
-                    onValueChange={(value) => setUploadDetails({...uploadDetails, category: value})}
+                  <Select
+                    value={uploadDetails.category}
+                    onValueChange={(value) => setUploadDetails({...uploadDetails, category: value, useOcr: value === "prescription"})}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select category" />
@@ -720,21 +793,92 @@ export default function PatientMedicalRecords() {
                     </SelectContent>
                   </Select>
                 </div>
-                
+
+                {uploadDetails.category === "prescription" && uploadFile && (
+                  <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                    <div className="flex items-start mb-3">
+                      <Pill className="h-5 w-5 text-blue-600 dark:text-blue-400 mr-2 mt-0.5" />
+                      <div>
+                        <h4 className="font-medium text-blue-800 dark:text-blue-300">Prescription Detected</h4>
+                        <p className="text-sm text-blue-600 dark:text-blue-400">Use AI to extract medication details</p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full bg-white dark:bg-slate-800 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/40"
+                      onClick={processPrescriptionWithOcr}
+                      disabled={isOcrProcessing}
+                    >
+                      {isOcrProcessing ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <Scan className="h-4 w-4 mr-2" />
+                          Extract Prescription Data
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+
+                {ocrResults && (
+                  <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+                    <h4 className="font-medium text-green-800 dark:text-green-300 mb-2">Extracted Information</h4>
+                    <div className="space-y-2 text-sm">
+                      {ocrResults.doctorName && (
+                        <div>
+                          <span className="font-medium">Doctor:</span> {ocrResults.doctorName}
+                        </div>
+                      )}
+                      {ocrResults.patientName && (
+                        <div>
+                          <span className="font-medium">Patient:</span> {ocrResults.patientName}
+                        </div>
+                      )}
+                      {ocrResults.date && (
+                        <div>
+                          <span className="font-medium">Date:</span> {ocrResults.date}
+                        </div>
+                      )}
+                      {ocrResults.diagnosis && (
+                        <div>
+                          <span className="font-medium">Diagnosis:</span> {ocrResults.diagnosis}
+                        </div>
+                      )}
+                      {ocrResults.medications && ocrResults.medications.length > 0 && (
+                        <div>
+                          <span className="font-medium">Medications:</span>
+                          <ul className="list-disc pl-5 mt-1">
+                            {ocrResults.medications.map((med, index) => (
+                              <li key={index}>
+                                {med.name} {med.dosage && `- ${med.dosage}`} {med.frequency && `(${med.frequency})`}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <Label htmlFor="description">Description (Optional)</Label>
-                  <Input 
-                    id="description" 
+                  <Input
+                    id="description"
                     value={uploadDetails.description}
                     onChange={(e) => setUploadDetails({...uploadDetails, description: e.target.value})}
                   />
                 </div>
               </div>
-              
+
               <DialogFooter className="mt-4">
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   onClick={() => {
                     setUploadDialogOpen(false);
                     resetUploadForm();

@@ -17,17 +17,15 @@ export const PatientProvider = ({ children }) => {
   const [patient, setPatient] = useState(null);
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [profileLoading, setProfileLoading] = useState(true);
   const [appointmentsLoading, setAppointmentsLoading] = useState(false);
   const [patientError, setPatientError] = useState(null);
   const [vitalStats, setVitalStats] = useState([]);
 
   // Configure axios with auth token
   const getAuthHeaders = () => {
-    const currentToken = token || localStorage.getItem("token");
     return {
       headers: {
-        Authorization: `Bearer ${currentToken}`
+        Authorization: `Bearer ${token}`
       }
     };
   };
@@ -35,71 +33,34 @@ export const PatientProvider = ({ children }) => {
   // Fetch patient profile when authenticated
   useEffect(() => {
     const role = localStorage.getItem("Role");
-    const storedToken = localStorage.getItem("token");
-    const shouldFetchProfile = (isAuthenticated || storedToken) && role === "patient";
-
-    // Set loading state to true at the beginning of the effect
-    setProfileLoading(true);
-
-    if (shouldFetchProfile) {
-      // Set a small timeout to ensure UI shows loading state
-      const loadingTimeout = setTimeout(() => {
-        // Don't show toast on initial page load/refresh
-        getPatientProfile(false);
-      }, 300); // Small delay to ensure loading state is visible
-
-      // Clean up timeout if component unmounts
-      return () => clearTimeout(loadingTimeout);
-    } else {
-      // Reset loading state when not authenticated
-      setProfileLoading(false);
+    if (isAuthenticated && role === "patient" && token) {
+      getPatientProfile();
     }
   }, [isAuthenticated, user, token]);
 
   // Get patient profile
-  const getPatientProfile = async (showToast = false) => {
-    const currentToken = token || localStorage.getItem("token");
-    if (!currentToken) {
+  const getPatientProfile = async () => {
+    if (!token) {
       console.warn("No authentication token available");
-      setProfileLoading(false);
       return null;
     }
 
     try {
       setLoading(true);
-      setProfileLoading(true);
       setPatientError(null);
       const { data } = await axios.get(
         `${API_URL}/patients/profile`,
-        {
-          headers: {
-            Authorization: `Bearer ${currentToken}`
-          }
-        }
+        getAuthHeaders()
       );
       setPatient(data.data);
       return data.data;
     } catch (error) {
-      // Only set error if the error is not 401 (unauthorized) during initial load
-      const statusCode = error.response?.status;
       const message = error.response?.data?.message || "Failed to fetch patient profile";
-
-      if (statusCode !== 401) {
-        setPatientError(message);
-        // Only show toast for errors that aren't authentication related and when explicitly requested
-        if (showToast) {
-          toast.error("Failed to fetch patient profile. Please try again.");
-        } else {
-          console.warn("Patient profile not found, but not showing toast on page load/refresh");
-        }
-      } else {
-        console.warn("Authentication token expired or invalid");
-      }
+      setPatientError(message);
       console.error("Error fetching patient profile:", error);
       return null;
     } finally {
       setLoading(false);
-      setProfileLoading(false);
     }
   };
 
@@ -252,8 +213,8 @@ export const PatientProvider = ({ children }) => {
         formData,
         config
       );
-      // Update patient state with new image - don't show error toast if this fails
-      await getPatientProfile(false);
+      // Update patient state with new image
+      await getPatientProfile();
       toast.success("Profile image updated successfully");
       return data;
     } catch (error) {
@@ -267,8 +228,7 @@ export const PatientProvider = ({ children }) => {
 
   // Add these methods to match what your dashboard might need
   const fetchPatientProfile = async (userId) => {
-    // Don't show toast on dashboard load
-    return await getPatientProfile(false);
+    return await getPatientProfile();
   };
 
   const fetchUpcomingAppointments = async (userId) => {
@@ -347,6 +307,78 @@ export const PatientProvider = ({ children }) => {
     }
   };
 
+  // Upload medical document
+  const uploadMedicalDocument = async (formData) => {
+    try {
+      setLoading(true);
+
+      // Make sure we have the auth headers
+      const headers = {
+        ...getAuthHeaders().headers,
+        'Content-Type': 'multipart/form-data'
+      };
+
+      const response = await axios.post(
+        `${API_URL}/patients/medical-records/upload`,
+        formData,
+        { headers }
+      );
+
+      console.log('Upload response:', response.data);
+
+      // Refresh medical records after successful upload
+      await fetchMedicalRecords();
+
+      toast.success("Medical document uploaded successfully");
+      return response.data.data;
+    } catch (error) {
+      console.error("Error uploading medical document:", error);
+      const message = error.response?.data?.message || "Failed to upload medical document";
+      toast.error(message);
+      throw new Error(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Process prescription with OCR
+  const processPrescriptionOCR = async (formData) => {
+    try {
+      setLoading(true);
+
+      // Make sure we have the auth headers
+      const headers = {
+        ...getAuthHeaders().headers,
+        'Content-Type': 'multipart/form-data'
+      };
+
+      // Debug log to verify the formData has the correct field name
+      console.log('Processing prescription with formData containing field:', 
+        formData.has('document') ? 'document field exists' : 'document field missing');
+
+      const response = await axios.post(
+        `${API_URL}/patients/medical-records/process-prescription`,
+        formData,
+        { headers }
+      );
+
+      console.log('OCR response:', response.data);
+
+      // Refresh medical records after successful processing
+      await fetchMedicalRecords();
+
+      toast.success("Prescription processed successfully");
+      return response.data.data;
+    } catch (error) {
+      console.error("Error processing prescription:", error);
+      const message = error.response?.data?.message || "Failed to process prescription";
+      toast.error(message);
+      throw new Error(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <PatientContext.Provider
       value={{
@@ -355,7 +387,6 @@ export const PatientProvider = ({ children }) => {
         appointments,
         upcomingAppointments: appointments?.filter(apt => apt.status === 'upcoming') || [], // For dashboard
         loading,
-        profileLoading, // Add the specific loading state to the context
         appointmentsLoading,
         error: patientError,
         getPatientProfile,
@@ -370,6 +401,8 @@ export const PatientProvider = ({ children }) => {
         fetchMedicalRecords,
         fetchVitalStats,
         addVitalStats,
+        uploadMedicalDocument,
+        processPrescriptionOCR,
         medicalRecords: null, // Will be populated by fetchMedicalRecords
         vitalStats, // Will be populated by fetchVitalStats,
       }}
