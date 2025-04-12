@@ -23,3 +23,5 @@ build/
 .vscode/
 .idea/
 *.iml
+
+uploads/

@@ -8,17 +8,17 @@ const medicationSchema = new mongoose.Schema({
   },
   dosage: {
     type: String,
-    required: true,
+    // required: true,
     trim: true
   },
   frequency: {
     type: String,
-    required: true,
+    // required: true,
     trim: true
   },
   duration: {
     type: String,
-    required: true,
+    // required: true,
     trim: true
   },
   instructions: {
@@ -31,7 +31,7 @@ const prescriptionSchema = new mongoose.Schema({
   doctor: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Doctor',
-    required: true
+    // required: true
   },
   patient: {
     type: mongoose.Schema.Types.ObjectId,

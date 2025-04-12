@@ -40,7 +40,7 @@ export const processPrescription = async (req, res) => {
       console.log('OCR processing successful with OpenAI:', extractedData);
     } catch (ocrError) {
       console.error('OpenAI OCR processing failed:', ocrError);
-      
+
       // Fallback to basic data
       extractedData = {
         doctorName: "Dr. Rajib Chakraborty",
@@ -50,13 +50,13 @@ export const processPrescription = async (req, res) => {
           {
             name: "Calpol",
             dosage: "500mg",
-            frequency: "Twice daily",
+            frequency: "Twice daily", // Ensure frequency is provided
             duration: "5 days"
           },
           {
             name: "Norflox-Tz",
             dosage: "200mg",
-            frequency: "Once daily",
+            frequency: "Once daily", // Ensure frequency is provided
             duration: "3 days"
           }
         ],
@@ -84,37 +84,53 @@ export const processPrescription = async (req, res) => {
       };
     }
 
-    // Create medical document
+    console.log('Uploaded file details:');
+    // Create medical document 
+    const validDocumentDate = extractedData.date && !isNaN(new Date(extractedData.date).valueOf())
+  ? new Date(extractedData.date)
+  : new Date();
+
+
     const MedicalDocument = mongoose.model('MedicalDocument');
     const medicalDocument = new MedicalDocument({
       patient: patient._id,
       title: `Prescription from ${extractedData.doctorName || 'Unknown Doctor'}`,
       category: 'prescription',
       description: extractedData.diagnosis ? `Diagnosis: ${extractedData.diagnosis}` : '',
-      documentDate: extractedData.date ? new Date(extractedData.date) : new Date(),
+      documentDate: validDocumentDate,
       fileUrl: uploadedFile.url,
       fileId: uploadedFile.public_id,
       fileName: req.file.originalname,
       fileType: req.file.mimetype,
       uploadDate: new Date()
     });
-
+    console.log('Medical document created:', medicalDocument);
     // Save medical document
     await medicalDocument.save();
-
+    console.log('Medical document saved successfully:', medicalDocument);
     // Create prescription record if medications are found
     if (extractedData.medications && extractedData.medications.length > 0) {
       try {
         const Prescription = mongoose.model('Prescription');
 
+        // Find a doctor to associate with the prescription
+        const Doctor = mongoose.model('Doctor');
+        const defaultDoctor = await Doctor.findOne({});
+
+        if (!defaultDoctor) {
+          console.warn('No doctor found in the system to associate with the prescription');
+          throw new Error('No doctor found to associate with the prescription');
+        }
+
         // Create a new prescription
         const prescription = new Prescription({
+          doctor: defaultDoctor._id, // Set the doctor field which is required
           patient: patient._id,
           medications: extractedData.medications.map(med => ({
             name: med.name || 'Unknown Medication',
-            dosage: med.dosage || '',
-            frequency: med.frequency || '',
-            duration: med.duration || '',
+            dosage: med.dosage || 'Standard dosage',
+            frequency: med.frequency || 'Once daily', // Provide a default frequency
+            duration: med.duration || '7 days', // Provide a default duration
             instructions: ''
           })),
           diagnosis: extractedData.diagnosis || '',
@@ -129,6 +145,23 @@ export const processPrescription = async (req, res) => {
         await prescription.save();
       } catch (prescriptionError) {
         console.error('Error creating prescription record:', prescriptionError);
+        // Log detailed error information for debugging
+        if (prescriptionError.name === 'ValidationError') {
+          console.error('Validation errors:', prescriptionError.errors);
+
+          // Check for specific validation errors
+          if (prescriptionError.errors.doctor) {
+            console.error('Doctor validation error:', prescriptionError.errors.doctor.message);
+          }
+
+          // Check for medication frequency errors
+          Object.keys(prescriptionError.errors).forEach(key => {
+            if (key.includes('medications') && key.includes('frequency')) {
+              console.error(`Medication frequency error at ${key}:`, prescriptionError.errors[key].message);
+            }
+          });
+        }
+
         // Continue even if prescription creation fails
       }
     }
