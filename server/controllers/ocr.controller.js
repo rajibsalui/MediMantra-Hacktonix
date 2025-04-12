@@ -10,7 +10,7 @@ import { uploadFile } from '../utils/fileUpload.js';
 export const processPrescription = async (req, res) => {
   try {
     const userId = req.user.id;
-
+    console.log(` hereeeeeeeeeeeeeeee ${req.file}`);
     // Check if file was uploaded
     if (!req.file) {
       console.error('No file found in request:', req.body);
