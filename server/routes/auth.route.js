@@ -2,6 +2,7 @@ import express from 'express';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { checkRole } from '../middleware/auth.middleware.js';
 import { uploadMiddleware } from '../middleware/upload.middleware.js';
+import { upload } from '../utils/fileUpload.js'; 
 import {
   register,
   login,
@@ -27,7 +28,7 @@ import {
 const router = express.Router();
 
 // Patient routes
-router.post('/register', uploadMiddleware.single('profilePicture'), register);
+router.post('/register', upload.single('profilePicture'), register);
 router.post('/login', login);
 router.post('/logout', authMiddleware, logout);
 router.post('/refresh-token', refreshAccessToken);
@@ -41,7 +42,7 @@ router.put('/update-email', authMiddleware, updateEmail);
 router.get('/current-user', authMiddleware, getCurrentUser);
 
 // Doctor specific routes
-router.post('/doctor/register', uploadMiddleware.single('profilePicture'), registerDoctor);
+router.post('/doctor/register', upload.single('profilePicture'), registerDoctor);
 router.post('/doctor/login', loginDoctor);
 router.put('/doctor/complete-profile', authMiddleware, checkRole('doctor'), completeDoctorProfile);
 router.post('/doctor/verification-documents', authMiddleware, checkRole('doctor'), uploadVerificationDocs);
