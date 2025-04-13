@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/components/ui/use-toast";
 import { Loader2 } from "lucide-react";
 import emergencyService from "@/services/emergency.service";
 
@@ -26,7 +25,8 @@ export default function AmbulanceRegistrationForm() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const { toast } = useToast();
+  const [error, setError] = useState(null);
+  const [locationMessage, setLocationMessage] = useState(null);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -47,43 +47,45 @@ export default function AmbulanceRegistrationForm() {
             longitude: position.coords.longitude.toString(),
           }));
 
-          toast({
-            title: "Location detected",
-            description: "Your current location has been added to the form.",
-            variant: "success",
+          setLocationMessage({
+            type: "success",
+            text: "Your current location has been added to the form."
           });
+          
+          // Clear message after 3 seconds
+          setTimeout(() => setLocationMessage(null), 3000);
         },
         (error) => {
           console.error("Error getting location:", error);
-          toast({
-            title: "Location error",
-            description: "Unable to get your location. Please enter coordinates manually.",
-            variant: "destructive",
+          setLocationMessage({
+            type: "error",
+            text: "Unable to get your location. Please enter coordinates manually."
           });
+          
+          // Clear message after 3 seconds
+          setTimeout(() => setLocationMessage(null), 3000);
         }
       );
     } else {
-      toast({
-        title: "Geolocation not supported",
-        description: "Your browser doesn't support geolocation. Please enter coordinates manually.",
-        variant: "destructive",
+      setLocationMessage({
+        type: "error",
+        text: "Your browser doesn't support geolocation. Please enter coordinates manually."
       });
+      
+      // Clear message after 3 seconds
+      setTimeout(() => setLocationMessage(null), 3000);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
+    setError(null);
 
     try {
-      const response = await emergencyService.registerAmbulance(formData);
+      await emergencyService.registerAmbulance(formData);
 
       setSuccess(true);
-      toast({
-        title: "Registration successful",
-        description: "The ambulance has been registered successfully.",
-        variant: "success",
-      });
 
       // Reset form after successful submission
       setFormData({
@@ -100,11 +102,7 @@ export default function AmbulanceRegistrationForm() {
       });
     } catch (error) {
       console.error("Error registering ambulance:", error);
-      toast({
-        title: "Registration failed",
-        description: error.message || "Failed to register ambulance. Please try again.",
-        variant: "destructive",
-      });
+      setError(error.message || "Failed to register ambulance. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -119,6 +117,22 @@ export default function AmbulanceRegistrationForm() {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md">
+            {error}
+          </div>
+        )}
+        
+        {locationMessage && (
+          <div className={`mb-4 p-3 rounded-md ${
+            locationMessage.type === "success" 
+              ? "bg-green-50 border border-green-200 text-green-700" 
+              : "bg-red-50 border border-red-200 text-red-700"
+          }`}>
+            {locationMessage.text}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Ambulance Name/Service</Label>
@@ -132,6 +146,7 @@ export default function AmbulanceRegistrationForm() {
             />
           </div>
 
+          {/* Rest of form fields remain unchanged */}
           <div className="space-y-2">
             <Label htmlFor="contactNumber">Contact Number</Label>
             <Input

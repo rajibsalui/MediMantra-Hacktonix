@@ -5,8 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2, Plus, MapPin } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
-import { Toaster } from "@/components/ui/toaster";
 import Link from "next/link";
 import emergencyService from "@/services/emergency.service";
 
@@ -14,7 +12,6 @@ export default function AmbulancesPage() {
   const [ambulances, setAmbulances] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { toast } = useToast();
 
   useEffect(() => {
     fetchAmbulances();
@@ -29,11 +26,6 @@ export default function AmbulancesPage() {
     } catch (error) {
       console.error("Error fetching ambulances:", error);
       setError(error.message || "Failed to fetch ambulances");
-      toast({
-        title: "Error",
-        description: error.message || "Failed to fetch ambulances",
-        variant: "destructive",
-      });
     } finally {
       setIsLoading(false);
     }
@@ -127,7 +119,6 @@ export default function AmbulancesPage() {
           </CardContent>
         </Card>
       </div>
-      <Toaster />
     </div>
   );
 }

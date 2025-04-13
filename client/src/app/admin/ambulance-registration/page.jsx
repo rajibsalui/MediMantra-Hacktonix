@@ -2,7 +2,6 @@
 
 import React from "react";
 import AmbulanceRegistrationForm from "@/components/emergency/AmbulanceRegistrationForm";
-import { Toaster } from "@/components/ui/toaster";
 
 export default function AmbulanceRegistrationPage() {
   return (
@@ -27,7 +26,6 @@ export default function AmbulanceRegistrationPage() {
           </ul>
         </div>
       </div>
-      <Toaster />
     </div>
   );
 }

@@ -710,7 +710,7 @@ export default function PatientMedicalRecords() {
 
         {/* Upload dialog */}
         <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="sm:max-w-[500px] overflow-y-scroll">
             <DialogHeader>
               <DialogTitle>Upload Medical Record</DialogTitle>
               <DialogDescription>
@@ -718,7 +718,7 @@ export default function PatientMedicalRecords() {
               </DialogDescription>
             </DialogHeader>
 
-            <form onSubmit={handleUpload}>
+            <form className="overflow-y-scroll" onSubmit={handleUpload}>
               <div className="space-y-4 py-2">
                 <div className="space-y-2">
                   <Label htmlFor="file">Document File</Label>
