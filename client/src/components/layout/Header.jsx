@@ -87,11 +87,11 @@ export default function Header() {
       href: "/symptom-checker",
       icon: <FileText className="h-4 w-4 mr-2" />,
     },
-    {
-      name: "Register Ambulance",
-      href: "/admin/ambulance-registration",
-      icon: <AlertTriangle className="h-4 w-4 mr-2" />,
-    },
+    // {
+    //   name: "Register Ambulance",
+    //   href: "/admin/ambulance-registration",
+    //   icon: <AlertTriangle className="h-4 w-4 mr-2" />,
+    // },
   ];
 
   const router = useRouter();
