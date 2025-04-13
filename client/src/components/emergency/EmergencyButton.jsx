@@ -73,6 +73,8 @@ export default function EmergencyButton({ id }) {
       };
 
       const response = await emergencyService.sendEmergencyCall(emergencyData);
+      console.log(response);
+      
       setAmbulances(response.ambulances);
 
       showNotification(`Emergency call sent! Alert sent to ${response.count} ambulances in your area.`, "success");

@@ -1,43 +1,42 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+// import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import emergencyService from "@/services/emergency.service";
+import { useRouter } from "next/navigation";
 
 export default function AmbulanceRegistrationForm() {
   const [formData, setFormData] = useState({
     name: "",
-    contactNumber: "",
     vehicleNumber: "",
-    vehicleType: "basic",
-    latitude: "",
-    longitude: "",
     driverName: "",
     driverContact: "",
-    address: "",
-    city: ""
+    latitude: "",
+    longitude: ""
   });
+
+  // Get location on component mount
+  useEffect(() => {
+    getLocationFromBrowser();
+  }, []);
 
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState(null);
   const [locationMessage, setLocationMessage] = useState(null);
-
+   const navigate=useRouter()
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSelectChange = (value) => {
-    setFormData((prev) => ({ ...prev, vehicleType: value }));
-  };
-
-  const handleGetLocation = () => {
+  const getLocationFromBrowser = () => {
+    setError(null);
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -49,29 +48,31 @@ export default function AmbulanceRegistrationForm() {
 
           setLocationMessage({
             type: "success",
-            text: "Your current location has been added to the form."
+            text: "Your location has been detected automatically."
           });
-          
+
           // Clear message after 3 seconds
           setTimeout(() => setLocationMessage(null), 3000);
         },
         (error) => {
           console.error("Error getting location:", error);
+          setError("Unable to get your location. Please try again.");
           setLocationMessage({
             type: "error",
-            text: "Unable to get your location. Please enter coordinates manually."
+            text: "Unable to get your location. Please try again."
           });
-          
+
           // Clear message after 3 seconds
           setTimeout(() => setLocationMessage(null), 3000);
         }
       );
     } else {
+      setError("Geolocation is not supported by your browser.");
       setLocationMessage({
         type: "error",
-        text: "Your browser doesn't support geolocation. Please enter coordinates manually."
+        text: "Your browser doesn't support geolocation. Please try on a different device."
       });
-      
+
       // Clear message after 3 seconds
       setTimeout(() => setLocationMessage(null), 3000);
     }
@@ -82,24 +83,39 @@ export default function AmbulanceRegistrationForm() {
     setIsLoading(true);
     setError(null);
 
+    // Check if location is available
+    if (!formData.latitude || !formData.longitude) {
+      setError("Location is required. Please wait for location detection or try again.");
+      setIsLoading(false);
+      return;
+    }
+
     try {
       await emergencyService.registerAmbulance(formData);
 
       setSuccess(true);
+      setLocationMessage({
+        type: "success",
+        text: "The ambulance has been registered successfully."
+      });
 
       // Reset form after successful submission
       setFormData({
         name: "",
-        contactNumber: "",
         vehicleNumber: "",
-        vehicleType: "basic",
-        latitude: "",
-        longitude: "",
         driverName: "",
         driverContact: "",
-        address: "",
-        city: ""
+        latitude: "",
+        longitude: ""
       });
+
+      // Get location again for the next registration
+      setTimeout(() => {
+        getLocationFromBrowser();
+      }, 1000);
+
+      navigate.push("/")
+
     } catch (error) {
       console.error("Error registering ambulance:", error);
       setError(error.message || "Failed to register ambulance. Please try again.");
@@ -122,11 +138,11 @@ export default function AmbulanceRegistrationForm() {
             {error}
           </div>
         )}
-        
+
         {locationMessage && (
           <div className={`mb-4 p-3 rounded-md ${
-            locationMessage.type === "success" 
-              ? "bg-green-50 border border-green-200 text-green-700" 
+            locationMessage.type === "success"
+              ? "bg-green-50 border border-green-200 text-green-700"
               : "bg-red-50 border border-red-200 text-red-700"
           }`}>
             {locationMessage.text}
@@ -146,19 +162,6 @@ export default function AmbulanceRegistrationForm() {
             />
           </div>
 
-          {/* Rest of form fields remain unchanged */}
-          <div className="space-y-2">
-            <Label htmlFor="contactNumber">Contact Number</Label>
-            <Input
-              id="contactNumber"
-              name="contactNumber"
-              value={formData.contactNumber}
-              onChange={handleChange}
-              placeholder="10-digit phone number"
-              required
-            />
-          </div>
-
           <div className="space-y-2">
             <Label htmlFor="vehicleNumber">Vehicle Number</Label>
             <Input
@@ -170,60 +173,6 @@ export default function AmbulanceRegistrationForm() {
               required
             />
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="vehicleType">Vehicle Type</Label>
-            <Select
-              value={formData.vehicleType}
-              onValueChange={handleSelectChange}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select vehicle type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="basic">Basic</SelectItem>
-                <SelectItem value="advanced">Advanced</SelectItem>
-                <SelectItem value="patient-transport">Patient Transport</SelectItem>
-                <SelectItem value="neonatal">Neonatal</SelectItem>
-                <SelectItem value="air">Air Ambulance</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="latitude">Latitude</Label>
-              <Input
-                id="latitude"
-                name="latitude"
-                value={formData.latitude}
-                onChange={handleChange}
-                placeholder="28.6139"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="longitude">Longitude</Label>
-              <Input
-                id="longitude"
-                name="longitude"
-                value={formData.longitude}
-                onChange={handleChange}
-                placeholder="77.2090"
-                required
-              />
-            </div>
-          </div>
-
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            onClick={handleGetLocation}
-          >
-            Get Current Location
-          </Button>
 
           <div className="space-y-2">
             <Label htmlFor="driverName">Driver Name</Label>
@@ -249,27 +198,27 @@ export default function AmbulanceRegistrationForm() {
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="address">Address (Optional)</Label>
-            <Input
-              id="address"
-              name="address"
-              value={formData.address}
-              onChange={handleChange}
-              placeholder="123 Main Street"
-            />
+          <div className="bg-blue-50 border border-blue-200 text-blue-700 p-3 rounded-md text-sm">
+            <p className="font-medium">Location: {formData.latitude && formData.longitude ?
+              `${formData.latitude}, ${formData.longitude}` :
+              "Detecting your location..."}
+            </p>
+            <p className="mt-1 text-xs">Your current location will be used for emergency services.</p>
+            {(!formData.latitude || !formData.longitude) && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-2 w-full"
+                onClick={getLocationFromBrowser}
+              >
+                Retry Location Detection
+              </Button>
+            )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="city">City (Optional)</Label>
-            <Input
-              id="city"
-              name="city"
-              value={formData.city}
-              onChange={handleChange}
-              placeholder="Delhi"
-            />
-          </div>
+          <input type="hidden" name="latitude" value={formData.latitude} />
+          <input type="hidden" name="longitude" value={formData.longitude} />
 
           <Button
             type="submit"

@@ -32,22 +32,18 @@ export const registerAmbulance = async (req, res) => {
   try {
     const {
       name,
-      contactNumber,
       vehicleNumber,
-      vehicleType,
       latitude,
       longitude,
       driverName,
-      driverContact,
-      address,
-      city
+      driverContact
     } = req.body;
 
     // Validate required fields
-    if (!name || !contactNumber || !vehicleNumber || !latitude || !longitude || !driverName || !driverContact) {
+    if (!name || !vehicleNumber || !latitude || !longitude || !driverName || !driverContact) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields. Please provide all required information.'
+        message: 'Missing required fields. Please provide name, vehicle number, location, driver name and contact.'
       });
     }
 
@@ -63,15 +59,13 @@ export const registerAmbulance = async (req, res) => {
     // Create new ambulance with minimal information
     const newAmbulance = new Ambulance({
       name,
-      contactNumber,
+      contactNumber: driverContact, // Use driver contact as the ambulance contact number
       vehicleNumber,
-      vehicleType: vehicleType || 'basic',
+      vehicleType: 'basic',
       latitude: parseFloat(latitude),
       longitude: parseFloat(longitude),
       driverName,
       driverContact,
-      address: address || '',
-      city: city || '',
       registrationDate: new Date()
     });
 
@@ -112,7 +106,7 @@ export const sendEmergencyCall = async (req, res) => {
 
     // Get all ambulances
     const allAmbulances = await Ambulance.find({});
-
+      
     if (allAmbulances.length === 0) {
       return res.status(404).json({
         success: false,
@@ -185,10 +179,10 @@ export const sendEmergencyCall = async (req, res) => {
 
 /**
  * Get all registered ambulances
- * @param {Object} req - Express request object
+ * @param {Object} _ - Express request object (unused)
  * @param {Object} res - Express response object
  */
-export const getAllAmbulances = async (req, res) => {
+export const getAllAmbulances = async (_, res) => {
   try {
     const ambulances = await Ambulance.find({});
 
