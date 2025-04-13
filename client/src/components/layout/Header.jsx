@@ -22,6 +22,7 @@ import {
   Settings,
   HelpCircle,
   Search,
+  AlertTriangle,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -34,6 +35,7 @@ import { Input } from "@/components/ui/input";
 import { motion } from "framer-motion";
 import ChatbotDialog from "@/components/chatbot/ChatbotDialog";
 import ThemeSwitcher from "../ui/ThemeSwitcher";
+import EmergencyButton from "@/components/emergency/EmergencyButton";
 
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -84,6 +86,11 @@ export default function Header() {
       name: "Symptom Checker",
       href: "/symptom-checker",
       icon: <FileText className="h-4 w-4 mr-2" />,
+    },
+    {
+      name: "Register Ambulance",
+      href: "/admin/ambulance-registration",
+      icon: <AlertTriangle className="h-4 w-4 mr-2" />,
     },
   ];
 
@@ -168,6 +175,7 @@ export default function Header() {
 
         {/* Right side actions */}
         <div className="flex items-center space-x-2">
+          <EmergencyButton />
           <ThemeSwitcher />
           {/* AI Chatbot Button */}
           <motion.div
@@ -299,6 +307,15 @@ export default function Header() {
                     </DropdownMenuItem>
                   </>
                 )}
+
+                {/* Ambulance Registration */}
+                <DropdownMenuItem
+                  onClick={() => router.push("/admin/ambulance-registration")}
+                  className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/70 dark:focus:bg-gray-700"
+                >
+                  <AlertTriangle className="mr-2 h-4 w-4 text-red-600 dark:text-red-400" />
+                  <span>Register Ambulance</span>
+                </DropdownMenuItem>
 
                 {/* Common support item */}
                 <DropdownMenuItem
@@ -435,6 +452,29 @@ export default function Header() {
             <div className="py-2">
               <div className="h-px bg-gray-200 dark:bg-gray-700"></div>
             </div>
+
+            {/* Mobile Emergency button */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2 }}
+              className="mt-4"
+            >
+              <Button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  // The emergency button component will handle the dialog
+                  document.getElementById('emergency-button-mobile').click();
+                }}
+                className="w-full bg-red-600 hover:bg-red-700 text-white"
+              >
+                <AlertTriangle className="mr-2 h-5 w-5" />
+                Emergency
+              </Button>
+              <div className="hidden">
+                <EmergencyButton id="emergency-button-mobile" />
+              </div>
+            </motion.div>
 
             {/* Mobile AI Chatbot button */}
             <motion.div

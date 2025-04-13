@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "seed:ambulances": "node scripts/seedAmbulances.js",
+    "create:ambulance-index": "node scripts/createAmbulanceIndex.js",
+    "start:with-seed": "npm run create:ambulance-index && npm run seed:ambulances && npm run start"
   },
   "engines": {
     "node": "18.x"

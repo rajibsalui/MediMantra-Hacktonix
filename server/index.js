@@ -20,6 +20,7 @@ import './models/medicalDocument.model.js';
 import './models/message.model.js';
 import './models/conversation.model.js';
 import './models/callRecord.model.js';
+import './models/ambulance.model.js';
 
 // Import PeerJS server
 import './peerServer.js';
@@ -33,6 +34,7 @@ import symptomRoutes from './routes/symptom.route.js';
 import prescriptionRoutes from './routes/prescription.route.js';
 import messageRoutes from './routes/message.route.js';
 import videoCallRoutes from './routes/videoCall.route.js';
+import emergencyRoutes from './routes/emergency.route.js';
 
 // Socket.io handlers
 import { setupSocketHandlers } from './socket/socketHandlers.js';
@@ -81,6 +83,7 @@ app.use('/api/symptom-checker', symptomRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/video-calls', videoCallRoutes);
+app.use('/api/emergency', emergencyRoutes);
 
 // 404 handler
 app.use((req, res) => {
