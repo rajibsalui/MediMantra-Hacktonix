@@ -65,7 +65,7 @@ app.use(cors({
     process.env.CLIENT_URL,
     'http://localhost:3000',
     'https://medi-mantra-hacktonix-d4hw1vhon-rajib-saluis-projects.vercel.app',
-    'https://medi-mantra-hacktonix.vercel.app/',
+    'https://medi-mantra-hacktonix.vercel.app',
     'https://medi-mantra-hacktonix-git-main-rajib-saluis-projects.vercel.app' // Add your frontend domain
   ],
   credentials: true

@@ -43,26 +43,20 @@ export const processPrescription = async (req, res) => {
 
       // Fallback to basic data
       extractedData = {
-        doctorName: "Dr. Rajib Chakraborty",
+        doctorName: "null",
         patientName: patient.firstName + " " + patient.lastName,
         date: new Date().toISOString().split('T')[0],
         medications: [
           {
-            name: "Calpol",
-            dosage: "500mg",
-            frequency: "Twice daily", // Ensure frequency is provided
-            duration: "5 days"
-          },
-          {
-            name: "Norflox-Tz",
-            dosage: "200mg",
-            frequency: "Once daily", // Ensure frequency is provided
-            duration: "3 days"
+            name: "null",
+            dosage: "null",
+            frequency: "null",
+            duration: "null",
           }
         ],
-        diagnosis: "Common Flu",
-        instructions: "Drink plenty of water and rest",
-        followUp: "After 1 week if symptoms persist"
+        diagnosis: "null",
+        instructions: "null",
+        followUp: "null"
       };
     }
 
@@ -124,14 +118,14 @@ export const processPrescription = async (req, res) => {
 
         // Create a new prescription
         const prescription = new Prescription({
-          doctor: defaultDoctor._id, // Set the doctor field which is required
+          doctor: extractedData.doctorName || "null", // Set the doctor field which is required
           patient: patient._id,
           medications: extractedData.medications.map(med => ({
             name: med.name || 'Unknown Medication',
-            dosage: med.dosage || 'Standard dosage',
-            frequency: med.frequency || 'Once daily', // Provide a default frequency
-            duration: med.duration || '7 days', // Provide a default duration
-            instructions: ''
+            dosage: med.dosage || 'Unknown dosage', // Provide a default dosage
+            frequency: med.frequency || 'Unknown frequency', // Provide a default frequency
+            duration: med.duration || 'Unknown duration', // Provide a default duration
+            instructions: med.instructions || 'No instructions provided', // Provide a default instruction
           })),
           diagnosis: extractedData.diagnosis || '',
           notes: extractedData.instructions || '',
@@ -141,8 +135,10 @@ export const processPrescription = async (req, res) => {
           fileId: uploadedFile.public_id,
           status: 'active'
         });
+        console.log('Prescription created:', prescription);
 
         await prescription.save();
+        console.log('Prescription saved successfully:', prescription);
       } catch (prescriptionError) {
         console.error('Error creating prescription record:', prescriptionError);
         // Log detailed error information for debugging

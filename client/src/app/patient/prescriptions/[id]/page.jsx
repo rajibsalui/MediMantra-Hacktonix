@@ -230,7 +230,7 @@ export default function PatientPrescriptionDetailPage({ params }) {
                 </Avatar>
                 <div>
                   <h4 className="font-medium">
-                    Dr. {prescription.doctor?.user?.firstName} {prescription.doctor?.user?.lastName}
+                    Dr. {prescription.doctor}
                   </h4>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     {prescription.doctor?.specialties?.join(", ")}
