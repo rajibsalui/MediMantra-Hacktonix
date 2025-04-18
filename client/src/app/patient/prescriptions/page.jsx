@@ -175,7 +175,7 @@ export default function PatientPrescriptions() {
                 {prescription.medications.map(med => med.name).join(", ")}
               </CardTitle>
               <CardDescription>
-                Prescribed by Dr. {prescription.doctor?.user?.firstName} {prescription.doctor?.user?.lastName}
+                Prescribed by Dr. {prescription.doctor}
               </CardDescription>
             </div>
             <Badge variant={activeTab === "active" ? "success" : "secondary"}>
