@@ -8,7 +8,8 @@
     "dev": "nodemon index.js",
     "seed:ambulances": "node scripts/seedAmbulances.js",
     "create:ambulance-index": "node scripts/createAmbulanceIndex.js",
-    "start:with-seed": "npm run create:ambulance-index && npm run seed:ambulances && npm run start"
+    "start:with-seed": "npm run create:ambulance-index && npm run seed:ambulances && npm run start",
+    "test:emergency": "node scripts/testEmergencyCall.js"
   },
   "engines": {
     "node": "18.x"
@@ -19,6 +20,8 @@
   "description": "",
   "dependencies": {
     "@huggingface/inference": "^3.1.2",
+    "@langchain/core": "^0.3.45",
+    "@langchain/openai": "^0.5.6",
     "axios": "^1.7.9",
     "bcrypt": "^5.1.1",
     "bcryptjs": "^2.4.3",
@@ -41,6 +44,7 @@
     "helmet": "^8.0.0",
     "http-errors": "^2.0.0",
     "jsonwebtoken": "^9.0.2",
+    "langchain": "^0.3.23",
     "medimantra": "file:..",
     "mongoose": "^8.9.6",
     "morgan": "^1.10.0",

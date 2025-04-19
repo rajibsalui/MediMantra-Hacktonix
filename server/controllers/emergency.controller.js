@@ -1,4 +1,5 @@
 import Ambulance from '../models/ambulance.model.js';
+import { generateEmergencyMessage, makeEmergencyCall, sendEmergencySMS } from '../utils/emergencyCall.js';
 
 /**
  * Calculate distance between two points using Haversine formula
@@ -106,7 +107,7 @@ export const sendEmergencyCall = async (req, res) => {
 
     // Get all ambulances
     const allAmbulances = await Ambulance.find({});
-      
+
     if (allAmbulances.length === 0) {
       return res.status(404).json({
         success: false,
@@ -145,27 +146,86 @@ export const sendEmergencyCall = async (req, res) => {
     }
 
     // Generate call links for each ambulance
-    const ambulancesWithCallLinks = nearbyAmbulances.map(ambulance => {
+    const ambulancesWithCallLinks = [];
+    const callResults = [];
+
+    // Process each nearby ambulance
+    for (const ambulance of nearbyAmbulances) {
       // Create a tel: link that can be used to initiate a call
       const callLink = `tel:${ambulance.driverContact}`;
+      let callStatus = 'Call link available';
+      let callSid = null;
+      let smsSid = null;
 
-      // If patient phone is provided, we can indicate that a call is being initiated
-      const callStatus = patientPhone ? 'Call initiated' : 'Call link available';
+      // If patient phone is provided, initiate actual calls using Twilio and Langchain
+      if (patientPhone) {
+        try {
+          // Generate emergency message using Langchain
+          const emergencyMessage = await generateEmergencyMessage({
+            patientLatitude: latitude,
+            patientLongitude: longitude,
+            patientPhone: patientPhone,
+            distance: ambulance.distance
+          });
 
-      return {
+          // Send SMS first as it's more reliable
+          const sms = await sendEmergencySMS(
+            ambulance.driverContact,
+            patientPhone,
+            emergencyMessage
+          );
+          smsSid = sms.sid;
+
+          // Then initiate a call
+          const call = await makeEmergencyCall(
+            ambulance.driverContact,
+            patientPhone,
+            emergencyMessage
+          );
+          callSid = call.sid;
+          callStatus = 'Call initiated';
+
+          // Store call result
+          callResults.push({
+            ambulanceId: ambulance._id,
+            driverContact: ambulance.driverContact,
+            callSid,
+            smsSid,
+            status: 'initiated',
+            message: emergencyMessage
+          });
+        } catch (callError) {
+          console.error(`Error initiating call to ${ambulance.driverContact}:`, callError);
+          callStatus = 'Call failed';
+
+          // Still add to results with error status
+          callResults.push({
+            ambulanceId: ambulance._id,
+            driverContact: ambulance.driverContact,
+            error: callError.message,
+            status: 'failed'
+          });
+        }
+      }
+
+      // Add ambulance to response with call status
+      ambulancesWithCallLinks.push({
         ...ambulance,
         callLink,
-        callStatus
-      };
-    });
+        callStatus,
+        callSid,
+        smsSid
+      });
+    }
 
-    // Return the ambulances that would be called
+    // Return the ambulances that were called
     return res.status(200).json({
       success: true,
       message: 'Emergency call sent to nearby ambulances',
       count: ambulancesWithCallLinks.length,
       ambulances: ambulancesWithCallLinks,
-      callInitiated: true
+      callResults: callResults,
+      callInitiated: patientPhone ? true : false
     });
   } catch (error) {
     console.error('Error sending emergency call:', error);

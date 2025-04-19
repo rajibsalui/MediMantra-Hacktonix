@@ -35,6 +35,7 @@ import prescriptionRoutes from './routes/prescription.route.js';
 import messageRoutes from './routes/message.route.js';
 import videoCallRoutes from './routes/videoCall.route.js';
 import emergencyRoutes from './routes/emergency.route.js';
+import testRoutes from './routes/test.route.js';
 
 // Socket.io handlers
 import { setupSocketHandlers } from './socket/socketHandlers.js';
@@ -85,6 +86,7 @@ app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/video-calls', videoCallRoutes);
 app.use('/api/emergency', emergencyRoutes);
+app.use('/api/test', testRoutes);
 
 // 404 handler
 app.use((req, res) => {

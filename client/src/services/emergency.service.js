@@ -8,11 +8,12 @@ import { API_URL } from "@/config/environment";
 class EmergencyService {
   /**
    * Send emergency call to all nearby ambulances
-   * @param {Object} data - Object containing location coordinates
+   * @param {Object} data - Object containing location coordinates and patient phone
    * @returns {Promise} - Promise with the API response
    */
   async sendEmergencyCall(data) {
     try {
+      console.log('Sending emergency call with data:', data);
       const response = await fetch(`${API_URL}/emergency/call`, {
         method: "POST",
         headers: {
@@ -26,7 +27,9 @@ class EmergencyService {
         throw new Error(errorData.message || "Failed to send emergency call");
       }
 
-      return await response.json();
+      const responseData = await response.json();
+      console.log('Emergency call response:', responseData);
+      return responseData;
     } catch (error) {
       console.error("Error sending emergency call:", error);
       throw error;

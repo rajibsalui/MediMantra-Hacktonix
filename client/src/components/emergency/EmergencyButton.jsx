@@ -74,7 +74,7 @@ export default function EmergencyButton({ id }) {
 
       const response = await emergencyService.sendEmergencyCall(emergencyData);
       console.log(response);
-      
+
       setAmbulances(response.ambulances);
 
       showNotification(`Emergency call sent! Alert sent to ${response.count} ambulances in your area.`, "success");
@@ -198,6 +198,7 @@ export default function EmergencyButton({ id }) {
                 </DialogTitle>
                 <DialogDescription className="text-center">
                   This will send an emergency alert to all ambulances within 5km of your current location.
+                  If you provide your phone number, actual calls will be initiated to ambulance drivers.
                 </DialogDescription>
               </DialogHeader>
 
@@ -211,6 +212,11 @@ export default function EmergencyButton({ id }) {
                 <div className="space-y-4">
                   <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md">
                     Emergency call sent successfully! Help is on the way.
+                    {ambulances.some(a => a.callSid) && (
+                      <div className="mt-2 text-sm">
+                        <strong>Calls initiated!</strong> Ambulance drivers are being contacted directly.
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -231,6 +237,13 @@ export default function EmergencyButton({ id }) {
                           <div className="text-gray-500 text-xs">
                             Contact: {ambulance.driverContact || ambulance.contactNumber}
                           </div>
+                          {ambulance.callStatus && (
+                            <div className="text-xs mt-1">
+                              <span className={`px-2 py-0.5 rounded-full ${ambulance.callStatus === 'Call initiated' ? 'bg-green-100 text-green-800' : ambulance.callStatus === 'Call failed' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>
+                                {ambulance.callStatus}
+                              </span>
+                            </div>
+                          )}
                           <div className="mt-2">
                             <a
                               href={`tel:${ambulance.driverContact || ambulance.contactNumber}`}
